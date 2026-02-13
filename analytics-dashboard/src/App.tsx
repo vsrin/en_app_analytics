@@ -4,6 +4,8 @@ import { formatTime, formatPercent } from './utils/formatters';
 import { App as AppType } from './types';
 import './App.css';
 
+type TimeRange = 'today' | 'week' | 'month' | 'all';
+
 function App() {
   const [apps, setApps] = useState<AppType[]>([]);
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
@@ -11,6 +13,7 @@ function App() {
   const [users, setUsers] = useState<any[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState<TimeRange>('today');
 
   useEffect(() => {
     loadApps();
@@ -36,7 +39,7 @@ function App() {
   const loadAppData = async (appId: string) => {
     try {
       const [health, usersData, batchesData] = await Promise.all([
-        analyticsAPI.getSystemHealth(appId, 7),
+        analyticsAPI.getSystemHealth(appId, 30), // Get 30 days for calculations
         analyticsAPI.getUsers(appId, { limit: 10 }),
         analyticsAPI.getBatches(appId, { limit: 10 })
       ]);
@@ -49,6 +52,80 @@ function App() {
     }
   };
 
+  const getAggregatedStats = () => {
+    if (!healthData || !healthData.trend) {
+      return {
+        total_batches: 0,
+        total_policies: 0,
+        match_rate: 0,
+        avg_processing_time: 0
+      };
+    }
+
+    const now = new Date();
+    let filteredData = [];
+
+    switch (timeRange) {
+      case 'today':
+        const todayStr = now.toISOString().split('T')[0];
+        filteredData = healthData.trend.filter((d: any) => d.date === todayStr);
+        break;
+      
+      case 'week':
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const weekAgoStr = weekAgo.toISOString().split('T')[0];
+        filteredData = healthData.trend.filter((d: any) => d.date >= weekAgoStr);
+        break;
+      
+      case 'month':
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const monthAgoStr = monthAgo.toISOString().split('T')[0];
+        filteredData = healthData.trend.filter((d: any) => d.date >= monthAgoStr);
+        break;
+      
+      case 'all':
+        filteredData = healthData.trend;
+        break;
+    }
+
+    if (filteredData.length === 0) {
+      return {
+        total_batches: 0,
+        total_policies: 0,
+        match_rate: 0,
+        avg_processing_time: 0
+      };
+    }
+
+    // Aggregate the data
+    const totals = filteredData.reduce((acc: any, day: any) => {
+      return {
+        total_batches: acc.total_batches + (day.total_batches || 0),
+        total_policies: acc.total_policies + (day.total_policies || 0),
+        total_claims: acc.total_claims + (day.total_claims || 0),
+        matched_claims: acc.matched_claims + (day.matched_claims || 0),
+        sum_processing_time: acc.sum_processing_time + (day.avg_processing_time || 0),
+        count: acc.count + 1
+      };
+    }, {
+      total_batches: 0,
+      total_policies: 0,
+      total_claims: 0,
+      matched_claims: 0,
+      sum_processing_time: 0,
+      count: 0
+    });
+
+    return {
+      total_batches: totals.total_batches,
+      total_policies: totals.total_policies,
+      match_rate: totals.total_claims > 0 ? (totals.matched_claims / totals.total_claims) * 100 : 0,
+      avg_processing_time: totals.count > 0 ? totals.sum_processing_time / totals.count : 0
+    };
+  };
+
+  const stats = getAggregatedStats();
+
   if (loading) {
     return <div className="loading">Loading...</div>;
   }
@@ -57,7 +134,10 @@ function App() {
     return (
       <div className="app-container">
         <header className="app-header">
-          <img src="/ElevatenowLogo.jpg" alt="Elevatenow" className="app-logo" />
+          <div className="logo-section">
+            <img src="/ElevatenowLogo.jpg" alt="Elevatenow" className="app-logo" />
+            <span className="logo-text">Elevatenow</span>
+          </div>
           <h1>App Tracker Dashboard</h1>
           <div className="header-spacer"></div>
         </header>
@@ -94,7 +174,10 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <img src="/ElevatenowLogo.jpg" alt="Elevatenow" className="app-logo" />
+        <div className="logo-section">
+          <img src="/ElevatenowLogo.jpg" alt="Elevatenow" className="app-logo" />
+          <span className="logo-text">Elevatenow</span>
+        </div>
         <h1>App Tracker Dashboard</h1>
         <button className="back-button" onClick={() => setSelectedApp(null)}>← Back to Apps</button>
       </header>
@@ -102,23 +185,36 @@ function App() {
       {healthData && (
         <div className="dashboard">
           <section className="kpi-section">
-            <h2>System Health</h2>
+            <div className="section-header-with-filter">
+              <h2>System Health</h2>
+              <select 
+                value={timeRange} 
+                onChange={(e) => setTimeRange(e.target.value as TimeRange)}
+                className="time-range-selector"
+              >
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+                <option value="all">All Time</option>
+              </select>
+            </div>
+            
             <div className="kpi-grid">
               <div className="kpi-card">
-                <div className="kpi-label">Total Batches Today</div>
-                <div className="kpi-value">{healthData.current.total_batches}</div>
+                <div className="kpi-label">Total Batches</div>
+                <div className="kpi-value">{stats.total_batches}</div>
               </div>
               <div className="kpi-card">
                 <div className="kpi-label">Policies Processed</div>
-                <div className="kpi-value">{healthData.current.total_policies}</div>
+                <div className="kpi-value">{stats.total_policies}</div>
               </div>
               <div className="kpi-card">
                 <div className="kpi-label">Match Rate</div>
-                <div className="kpi-value">{formatPercent(healthData.current.match_rate)}</div>
+                <div className="kpi-value">{formatPercent(stats.match_rate)}</div>
               </div>
               <div className="kpi-card">
                 <div className="kpi-label">Avg Processing Time</div>
-                <div className="kpi-value">{formatTime(healthData.current.avg_processing_time)}</div>
+                <div className="kpi-value">{formatTime(stats.avg_processing_time)}</div>
               </div>
             </div>
           </section>
