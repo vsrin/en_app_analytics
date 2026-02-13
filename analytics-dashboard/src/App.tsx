@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { analyticsAPI } from './services/api';
 import { formatTime, formatPercent } from './utils/formatters';
+import { App as AppType } from './types';
 import './App.css';
 
-interface App {
-  app_id: string;
-  app_name: string;
-  stats?: any;
-}
-
 function App() {
-  const [apps, setApps] = useState<App[]>([]);
+  const [apps, setApps] = useState<AppType[]>([]);
   const [selectedApp, setSelectedApp] = useState<string | null>(null);
   const [healthData, setHealthData] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
@@ -62,28 +57,35 @@ function App() {
     return (
       <div className="app-container">
         <header className="app-header">
-          <h1>ElevateNow Analytics</h1>
-          <p>Select an application to view analytics</p>
+          <img src="/ElevatenowLogo.jpg" alt="Elevatenow" className="app-logo" />
+          <h1>App Tracker Dashboard</h1>
+          <div className="header-spacer"></div>
         </header>
 
-        <div className="app-grid">
-          {apps.map(app => (
-            <div
-              key={app.app_id}
-              className="app-card"
-              onClick={() => setSelectedApp(app.app_id)}
-            >
-              <h2>{app.app_name}</h2>
-              {app.stats && (
-                <div className="app-stats">
-                  <div><strong>{app.stats.total_users}</strong> Users</div>
-                  <div><strong>{app.stats.total_batches}</strong> Batches</div>
-                  <div><strong>{app.stats.active_today}</strong> Active Today</div>
-                </div>
-              )}
-              <button>View Analytics</button>
-            </div>
-          ))}
+        <div className="content-area">
+          <div className="app-selector-intro">
+            <p>Select an application to view analytics</p>
+          </div>
+
+          <div className="app-grid">
+            {apps.map(app => (
+              <div
+                key={app.app_id}
+                className="app-card"
+                onClick={() => setSelectedApp(app.app_id)}
+              >
+                <h2>{app.app_name}</h2>
+                {app.stats && (
+                  <div className="app-stats">
+                    <div><strong>{app.stats.total_users}</strong> Users</div>
+                    <div><strong>{app.stats.total_batches}</strong> Batches</div>
+                    <div><strong>{app.stats.active_today}</strong> Active Today</div>
+                  </div>
+                )}
+                <button>View Analytics</button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -92,8 +94,9 @@ function App() {
   return (
     <div className="app-container">
       <header className="app-header">
-        <button onClick={() => setSelectedApp(null)}>← Back to Apps</button>
-        <h1>Analytics Dashboard</h1>
+        <img src="/ElevatenowLogo.jpg" alt="Elevatenow" className="app-logo" />
+        <h1>App Tracker Dashboard</h1>
+        <button className="back-button" onClick={() => setSelectedApp(null)}>← Back to Apps</button>
       </header>
 
       {healthData && (

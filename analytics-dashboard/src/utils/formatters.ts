@@ -11,6 +11,8 @@ export const formatTime = (seconds: number): string => {
     
     return `${minutes}m ${secs}s`;
   };
+
+  
   
   // Format percentage
   export const formatPercent = (value: number): string => {
